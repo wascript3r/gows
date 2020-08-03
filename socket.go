@@ -2,6 +2,7 @@ package gows
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"sync"
@@ -145,6 +146,22 @@ func (s *Socket) getReaderUnsafe() (ws.OpCode, io.Reader, error) {
 	return h.OpCode, r, nil
 }
 
+func (s *Socket) ReadJSON(v interface{}) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	_, r, err := s.getReaderUnsafe()
+	if err != nil {
+		return err
+	}
+
+	return json.NewDecoder(r).Decode(v)
+}
+
+func (s *Socket) getWriterUnsafe(op ws.OpCode) *wsutil.Writer {
+	return wsutil.NewWriter(s.sConn, ws.StateServerSide, op)
+}
+
 func (s *Socket) write(op ws.OpCode, p []byte) error {
 	s.mx.Lock()
 	defer s.mx.Unlock()
@@ -154,6 +171,20 @@ func (s *Socket) write(op ws.OpCode, p []byte) error {
 
 func (s *Socket) Write(p []byte) error {
 	return s.write(ws.OpText, p)
+}
+
+func (s *Socket) WriteJSON(v interface{}) error {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	w := s.getWriterUnsafe(ws.OpText)
+	enc := json.NewEncoder(w)
+
+	if err := enc.Encode(v); err != nil {
+		return err
+	}
+
+	return w.Flush()
 }
 
 func (s *Socket) Disconnect(ctx context.Context, reason string) {
