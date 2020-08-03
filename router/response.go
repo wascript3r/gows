@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/wascript3r/gostr"
 	"github.com/wascript3r/gows"
 )
 
@@ -12,6 +13,8 @@ type Response struct {
 }
 
 func WriteErr(s *gows.Socket, e string) error {
+	e = gostr.UpperFirst(e)
+
 	return s.WriteJSON(Response{
 		Err:    &e,
 		Params: nil,
