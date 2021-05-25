@@ -10,6 +10,7 @@ require (
 	github.com/mailru/easygo v0.0.0-20190618140210-3c14a0dc985f
 	github.com/wascript3r/cryptopay v0.0.4
 	github.com/wascript3r/gopool v0.0.0-20200227213539-8fa9e794e69d
+	github.com/wascript3r/gostr v0.0.0-20200222144921-e78b2166c216
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 )
 

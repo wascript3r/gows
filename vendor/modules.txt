@@ -17,6 +17,8 @@ github.com/mailru/easygo/netpoll
 github.com/wascript3r/cryptopay/pkg/logger
 # github.com/wascript3r/gopool v0.0.0-20200227213539-8fa9e794e69d
 github.com/wascript3r/gopool
+# github.com/wascript3r/gostr v0.0.0-20200222144921-e78b2166c216
+github.com/wascript3r/gostr
 # golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
