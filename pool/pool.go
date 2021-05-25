@@ -54,11 +54,16 @@ func (p *Pool) start(ctx context.Context) error {
 				}
 
 			case <-ctx.Done():
+				p.stop()
 				p.log.Info("Stopped socket pool...")
 				return
 			}
 		}
 	})
+}
+
+func (p *Pool) stop() {
+	close(p.writeJSON)
 }
 
 func (p *Pool) handleNewConn(_ context.Context, socket *gows.Socket, req *gows.Request) {
