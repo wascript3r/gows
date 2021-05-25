@@ -32,6 +32,11 @@ func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.Eve
 	ev.Subscribe(gows.NewConnectionEvent, p.handleNewConn)
 	ev.Subscribe(gows.DisconnectEvent, p.handleDisconnect)
 
+	err := p.start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return p, nil
 }
 
