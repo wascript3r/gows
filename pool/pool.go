@@ -25,8 +25,9 @@ func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.Eve
 		pool: pool,
 		log:  log,
 
-		mx:      &sync.RWMutex{},
-		sockets: make(map[*gows.Socket]struct{}),
+		mx:        &sync.RWMutex{},
+		sockets:   make(map[*gows.Socket]struct{}),
+		writeJSON: make(chan router.Params, 1),
 	}
 
 	ev.Subscribe(gows.NewConnectionEvent, p.handleNewConn)
