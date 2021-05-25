@@ -46,7 +46,7 @@ func (p *Pool) start(ctx context.Context) error {
 
 		for {
 			select {
-			case v := <-p.write:
+			case v := <-p.writeJSON:
 				err = p.writeAllJSON(v)
 				if err != nil {
 					p.log.Error("Cannot write message to all sockets because an error occurred: %s", err)
