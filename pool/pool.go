@@ -97,7 +97,7 @@ func (p *Pool) writeAllJSON(v router.Params) error {
 	}
 
 	p.mx.RLock()
-	defer p.mx.Unlock()
+	defer p.mx.RUnlock()
 
 	count := len(p.sockets)
 	if count == 0 {
