@@ -94,8 +94,13 @@ func (p *Pool) writeAllJSON(v router.Params) error {
 	p.mx.RLock()
 	defer p.mx.Unlock()
 
+	count := len(p.sockets)
+	if count == 0 {
+		return nil
+	}
+
 	wg := &sync.WaitGroup{}
-	wg.Add(len(p.sockets))
+	wg.Add(count)
 
 	for s, _ := range p.sockets {
 		s := s
