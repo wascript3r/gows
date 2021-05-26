@@ -226,3 +226,10 @@ func (s *Socket) SetData(key string, val interface{}) {
 
 	s.data[key] = val
 }
+
+func (s *Socket) DeleteData(key string) {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	delete(s.data, key)
+}
