@@ -21,6 +21,10 @@ func WriteErr(s *gows.Socket, e string) error {
 	})
 }
 
+func WriteBadRequest(s *gows.Socket) error {
+	return WriteErr(s, ErrBadRequest.Error())
+}
+
 func WriteRes(s *gows.Socket, p Params) error {
 	return s.WriteJSON(Response{
 		Err:    nil,
