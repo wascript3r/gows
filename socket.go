@@ -20,10 +20,11 @@ var (
 )
 
 type Socket struct {
-	mx         sync.Mutex
+	mx         *sync.RWMutex
 	sConn      SafeConn
 	idleTime   time.Duration
 	activeTime time.Time
+	data       map[string]interface{}
 
 	pool   *gopool.Pool
 	poller netpoll.Poller
@@ -35,10 +36,11 @@ type Socket struct {
 
 func NewSocket(sConn SafeConn, idleTime time.Duration, pool *gopool.Pool, poller netpoll.Poller, tWheel *timingwheel.TimingWheel, ev EventBus) *Socket {
 	s := &Socket{
-		mx:         sync.Mutex{},
+		mx:         &sync.RWMutex{},
 		sConn:      sConn,
 		idleTime:   idleTime,
 		activeTime: time.Time{},
+		data:       make(map[string]interface{}),
 
 		pool:   pool,
 		poller: poller,
@@ -208,4 +210,19 @@ func (s *Socket) setActiveTime() {
 	defer s.mx.Unlock()
 
 	s.activeTime = time.Now()
+}
+
+func (s *Socket) GetData(key string) (interface{}, bool) {
+	s.mx.RLock()
+	defer s.mx.RUnlock()
+
+	v, ok := s.data[key]
+	return v, ok
+}
+
+func (s *Socket) SetData(key string, val interface{}) {
+	s.mx.Lock()
+	defer s.mx.Unlock()
+
+	s.data[key] = val
 }
