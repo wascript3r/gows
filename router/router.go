@@ -27,7 +27,7 @@ func New(ev gows.EventBus) *Router {
 func (r *Router) handle(ctx context.Context, s *gows.Socket, req *gows.Request) {
 	pr, err := ParseRequest(req.Reader)
 	if err != nil {
-		WriteErr(s, ErrBadRequest.Error())
+		WriteBadRequest(s, nil)
 		return
 	}
 
@@ -36,7 +36,7 @@ func (r *Router) handle(ctx context.Context, s *gows.Socket, req *gows.Request) 
 	r.mx.RUnlock()
 
 	if !ok {
-		WriteErr(s, ErrMethodNotFound.Error())
+		WriteErr(s, ErrMethodNotFound, nil)
 		return
 	}
 
