@@ -31,10 +31,10 @@ func WriteInternalError(s *gows.Socket, method *string) error {
 	return WriteErr(s, ErrInternalError, method)
 }
 
-func WriteRes(s *gows.Socket, method *string, p Params) error {
+func WriteRes(s *gows.Socket, method string, p Params) error {
 	return s.WriteJSON(Response{
 		Err:    nil,
-		Method: method,
+		Method: &method,
 		Params: p,
 	})
 }
