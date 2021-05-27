@@ -17,7 +17,7 @@ type Pool struct {
 
 	mx        *sync.RWMutex
 	sockets   map[*gows.Socket]struct{}
-	writeJSON chan router.Params
+	writeJSON chan *router.Response
 }
 
 func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.EventBus) (*Pool, error) {
@@ -27,7 +27,7 @@ func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.Eve
 
 		mx:        &sync.RWMutex{},
 		sockets:   make(map[*gows.Socket]struct{}),
-		writeJSON: make(chan router.Params, 1),
+		writeJSON: make(chan *router.Response, 1),
 	}
 
 	ev.Subscribe(gows.NewConnectionEvent, p.handleNewConn)
@@ -47,8 +47,8 @@ func (p *Pool) start(ctx context.Context) error {
 
 		for {
 			select {
-			case v := <-p.writeJSON:
-				err = p.writeAllJSON(v)
+			case r := <-p.writeJSON:
+				err = p.writeAllJSON(r)
 				if err != nil {
 					p.log.Error("Cannot write message to all sockets because an error occurred: %s", err)
 				}
@@ -87,11 +87,8 @@ func (p *Pool) NumSockets() int {
 	return len(p.sockets)
 }
 
-func (p *Pool) writeAllJSON(v router.Params) error {
-	bs, err := json.Marshal(router.Response{
-		Err:    nil,
-		Params: v,
-	})
+func (p *Pool) writeAllJSON(res *router.Response) error {
+	bs, err := json.Marshal(res)
 	if err != nil {
 		return err
 	}
@@ -119,6 +116,6 @@ func (p *Pool) writeAllJSON(v router.Params) error {
 	return nil
 }
 
-func (p *Pool) WriteJSONChan() chan<- router.Params {
+func (p *Pool) WriteJSONChan() chan<- *router.Response {
 	return p.writeJSON
 }
