@@ -116,6 +116,6 @@ func (p *Pool) writeAllJSON(res *router.Response) error {
 	return nil
 }
 
-func (p *Pool) WriteJSONChan() chan<- *router.Response {
-	return p.writeJSON
+func (p *Pool) WriteAllJSON(r *router.Response) {
+	p.writeJSON <- r
 }
