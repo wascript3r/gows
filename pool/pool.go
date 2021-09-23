@@ -11,13 +11,20 @@ import (
 	"github.com/wascript3r/gows/router"
 )
 
+type SocketFilter func(socket *gows.Socket) bool
+
+type writeReq struct {
+	*router.Response
+	SocketFilter
+}
+
 type Pool struct {
 	pool *gopool.Pool
 	log  logger.Usecase
 
 	mx        *sync.RWMutex
 	sockets   map[*gows.Socket]struct{}
-	writeJSON chan *router.Response
+	writeJSON chan writeReq
 }
 
 func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.EventBus) (*Pool, error) {
@@ -27,7 +34,7 @@ func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.Eve
 
 		mx:        &sync.RWMutex{},
 		sockets:   make(map[*gows.Socket]struct{}),
-		writeJSON: make(chan *router.Response, 1),
+		writeJSON: make(chan writeReq, 1),
 	}
 
 	ev.Subscribe(gows.NewConnectionEvent, p.handleNewConn)
@@ -66,14 +73,14 @@ func (p *Pool) stop() {
 	close(p.writeJSON)
 }
 
-func (p *Pool) handleNewConn(_ context.Context, socket *gows.Socket, req *gows.Request) {
+func (p *Pool) handleNewConn(_ context.Context, socket *gows.Socket, _ *gows.Request) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
 	p.sockets[socket] = struct{}{}
 }
 
-func (p *Pool) handleDisconnect(_ context.Context, socket *gows.Socket, req *gows.Request) {
+func (p *Pool) handleDisconnect(_ context.Context, socket *gows.Socket, _ *gows.Request) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
@@ -87,8 +94,8 @@ func (p *Pool) NumSockets() int {
 	return len(p.sockets)
 }
 
-func (p *Pool) writeAllJSON(res *router.Response) error {
-	bs, err := json.Marshal(res)
+func (p *Pool) writeAllJSON(r writeReq) error {
+	bs, err := json.Marshal(r.Response)
 	if err != nil {
 		return err
 	}
@@ -104,7 +111,11 @@ func (p *Pool) writeAllJSON(res *router.Response) error {
 	wg := &sync.WaitGroup{}
 	wg.Add(count)
 
-	for s, _ := range p.sockets {
+	for s := range p.sockets {
+		if r.SocketFilter != nil && !r.SocketFilter(s) {
+			continue
+		}
+
 		s := s
 		p.pool.Schedule(func() {
 			s.Write(bs)
@@ -117,5 +128,9 @@ func (p *Pool) writeAllJSON(res *router.Response) error {
 }
 
 func (p *Pool) WriteAllJSON(r *router.Response) {
-	p.writeJSON <- r
+	p.writeJSON <- writeReq{r, nil}
+}
+
+func (p *Pool) WriteJSON(r *router.Response, f SocketFilter) {
+	p.writeJSON <- writeReq{r, f}
 }
