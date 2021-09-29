@@ -11,15 +11,20 @@ import (
 	"github.com/RussellLuo/timingwheel"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/google/uuid"
 	"github.com/mailru/easygo/netpoll"
 	"github.com/wascript3r/gopool"
 )
+
+type UUID string
 
 var (
 	ErrUnexpectedClose = errors.New("unexpected close")
 )
 
 type Socket struct {
+	uuid UUID
+
 	mx         *sync.RWMutex
 	sConn      SafeConn
 	idleTime   time.Duration
@@ -36,6 +41,8 @@ type Socket struct {
 
 func NewSocket(sConn SafeConn, idleTime time.Duration, pool *gopool.Pool, poller netpoll.Poller, tWheel *timingwheel.TimingWheel, ev EventBus) *Socket {
 	s := &Socket{
+		uuid: UUID(uuid.NewString()),
+
 		mx:         &sync.RWMutex{},
 		sConn:      sConn,
 		idleTime:   idleTime,
@@ -210,6 +217,10 @@ func (s *Socket) setActiveTime() {
 	defer s.mx.Unlock()
 
 	s.activeTime = time.Now()
+}
+
+func (s *Socket) GetUUID() UUID {
+	return s.uuid
 }
 
 func (s *Socket) GetData(key string) (interface{}, bool) {

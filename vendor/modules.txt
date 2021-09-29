@@ -11,6 +11,8 @@ github.com/gobwas/pool/pbytes
 # github.com/gobwas/ws v1.0.3
 github.com/gobwas/ws
 github.com/gobwas/ws/wsutil
+# github.com/google/uuid v1.3.0
+github.com/google/uuid
 # github.com/mailru/easygo v0.0.0-20190618140210-3c14a0dc985f
 github.com/mailru/easygo/netpoll
 # github.com/wascript3r/cryptopay v0.0.4

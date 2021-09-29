@@ -8,9 +8,9 @@ import (
 type Params map[string]interface{}
 
 type Response struct {
-	Err    *string `json:"e"`
-	Method *string `json:"m"`
-	Params Params  `json:"p"`
+	Err    *string     `json:"e"`
+	Method *string     `json:"m"`
+	Params interface{} `json:"p"`
 }
 
 func WriteErr(s *gows.Socket, err error, method *string) error {
@@ -31,7 +31,7 @@ func WriteInternalError(s *gows.Socket, method *string) error {
 	return WriteErr(s, ErrInternalError, method)
 }
 
-func WriteRes(s *gows.Socket, method *string, p Params) error {
+func WriteRes(s *gows.Socket, method *string, p interface{}) error {
 	return s.WriteJSON(Response{
 		Err:    nil,
 		Method: method,

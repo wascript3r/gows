@@ -3,6 +3,7 @@ package pool
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 
 	"github.com/wascript3r/cryptopay/pkg/logger"
@@ -11,20 +12,63 @@ import (
 	"github.com/wascript3r/gows/router"
 )
 
+var (
+	ErrSocketDoesNotExist = errors.New("socket does not exist")
+	ErrRoomDoesNotExist   = errors.New("room does not exist")
+	ErrRoomAlreadyJoined  = errors.New("room is already joined")
+	ErrRoomIsNotJoined    = errors.New("room is not joined")
+)
+
+type Room string
+
+type socket struct {
+	*gows.Socket
+	rooms []Room
+}
+
+func (s socket) exists(room Room) bool {
+	for _, r := range s.rooms {
+		if r == room {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *socket) joinRoom(room Room) error {
+	if s.exists(room) {
+		return ErrRoomAlreadyJoined
+	}
+	s.rooms = append(s.rooms, room)
+	return nil
+}
+
+func (s *socket) leaveRoom(room Room) error {
+	for i, r := range s.rooms {
+		if r == room {
+			s.rooms = append(s.rooms[:i], s.rooms[i+1:]...)
+			return nil
+		}
+	}
+	return ErrRoomIsNotJoined
+}
+
 type SocketFilter func(socket *gows.Socket) bool
 
-type writeReq struct {
-	*router.Response
-	SocketFilter
+type emitReq struct {
+	room   *Room
+	res    *router.Response
+	filter SocketFilter
 }
 
 type Pool struct {
 	pool *gopool.Pool
 	log  logger.Usecase
 
-	mx        *sync.RWMutex
-	sockets   map[*gows.Socket]struct{}
-	writeJSON chan writeReq
+	mx      *sync.RWMutex
+	sockets map[gows.UUID]*socket
+	rooms   map[Room]map[gows.UUID]*socket
+	emitC   chan emitReq
 }
 
 func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.EventBus) (*Pool, error) {
@@ -32,9 +76,10 @@ func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.Eve
 		pool: pool,
 		log:  log,
 
-		mx:        &sync.RWMutex{},
-		sockets:   make(map[*gows.Socket]struct{}),
-		writeJSON: make(chan writeReq, 1),
+		mx:      &sync.RWMutex{},
+		sockets: make(map[gows.UUID]*socket),
+		rooms:   make(map[Room]map[gows.UUID]*socket),
+		emitC:   make(chan emitReq, 1),
 	}
 
 	ev.Subscribe(gows.NewConnectionEvent, p.handleNewConn)
@@ -54,8 +99,8 @@ func (p *Pool) start(ctx context.Context) error {
 
 		for {
 			select {
-			case r := <-p.writeJSON:
-				err = p.writeAllJSON(r)
+			case r := <-p.emitC:
+				err = p.emitMany(r)
 				if err != nil {
 					p.log.Error("Cannot write message to all sockets because an error occurred: %s", err)
 				}
@@ -70,21 +115,29 @@ func (p *Pool) start(ctx context.Context) error {
 }
 
 func (p *Pool) stop() {
-	close(p.writeJSON)
+	close(p.emitC)
 }
 
-func (p *Pool) handleNewConn(_ context.Context, socket *gows.Socket, _ *gows.Request) {
+func (p *Pool) handleNewConn(_ context.Context, s *gows.Socket, _ *gows.Request) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
-	p.sockets[socket] = struct{}{}
+	p.sockets[s.GetUUID()] = &socket{s, nil}
 }
 
-func (p *Pool) handleDisconnect(_ context.Context, socket *gows.Socket, _ *gows.Request) {
+func (p *Pool) handleDisconnect(_ context.Context, s *gows.Socket, _ *gows.Request) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
-	delete(p.sockets, socket)
+	ss, ok := p.sockets[s.GetUUID()]
+	if !ok {
+		return
+	}
+
+	for _, r := range ss.rooms {
+		delete(p.rooms[r], s.GetUUID())
+	}
+	delete(p.sockets, s.GetUUID())
 }
 
 func (p *Pool) NumSockets() int {
@@ -94,8 +147,8 @@ func (p *Pool) NumSockets() int {
 	return len(p.sockets)
 }
 
-func (p *Pool) writeAllJSON(r writeReq) error {
-	bs, err := json.Marshal(r.Response)
+func (p *Pool) emitMany(r emitReq) error {
+	bs, err := json.Marshal(r.res)
 	if err != nil {
 		return err
 	}
@@ -103,7 +156,14 @@ func (p *Pool) writeAllJSON(r writeReq) error {
 	p.mx.RLock()
 	defer p.mx.RUnlock()
 
-	count := len(p.sockets)
+	var sockets map[gows.UUID]*socket
+	if r.room == nil {
+		sockets = p.sockets
+	} else {
+		sockets = p.rooms[*r.room]
+	}
+
+	count := len(sockets)
 	if count == 0 {
 		return nil
 	}
@@ -111,14 +171,14 @@ func (p *Pool) writeAllJSON(r writeReq) error {
 	wg := &sync.WaitGroup{}
 	wg.Add(count)
 
-	for s := range p.sockets {
-		if r.SocketFilter != nil && !r.SocketFilter(s) {
+	for _, ss := range sockets {
+		if r.filter != nil && !r.filter(ss.Socket) {
 			continue
 		}
 
-		s := s
+		ss := ss
 		p.pool.Schedule(func() {
-			s.Write(bs)
+			ss.Write(bs)
 			wg.Done()
 		})
 	}
@@ -127,10 +187,95 @@ func (p *Pool) writeAllJSON(r writeReq) error {
 	return nil
 }
 
-func (p *Pool) WriteAllJSON(r *router.Response) {
-	p.writeJSON <- writeReq{r, nil}
+func (p *Pool) CreateRoom(r Room) {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+
+	p.rooms[r] = make(map[gows.UUID]*socket)
 }
 
-func (p *Pool) WriteJSON(r *router.Response, f SocketFilter) {
-	p.writeJSON <- writeReq{r, f}
+func (p *Pool) JoinRoom(s *gows.Socket, r Room) error {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+
+	if _, ok := p.rooms[r]; !ok {
+		return ErrRoomDoesNotExist
+	}
+
+	ss, ok := p.sockets[s.GetUUID()]
+	if !ok {
+		return ErrSocketDoesNotExist
+	}
+
+	if err := ss.joinRoom(r); err != nil {
+		return err
+	}
+
+	p.rooms[r][s.GetUUID()] = ss
+	return nil
+}
+
+func (p *Pool) LeaveRoom(s *gows.Socket, r Room) error {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+
+	if _, ok := p.rooms[r]; !ok {
+		return ErrRoomDoesNotExist
+	}
+
+	ss, ok := p.sockets[s.GetUUID()]
+	if !ok {
+		return ErrSocketDoesNotExist
+	}
+
+	if err := ss.leaveRoom(r); err != nil {
+		return err
+	}
+
+	delete(p.rooms[r], s.GetUUID())
+	return nil
+}
+
+func (p *Pool) EmitUUID(uuid gows.UUID, res *router.Response) error {
+	p.mx.RLock()
+	defer p.mx.RUnlock()
+
+	ss, ok := p.sockets[uuid]
+	if !ok {
+		return ErrSocketDoesNotExist
+	}
+
+	return ss.WriteJSON(res)
+}
+
+func (p *Pool) EmitAll(res *router.Response) {
+	p.emitC <- emitReq{
+		room:   nil,
+		res:    res,
+		filter: nil,
+	}
+}
+
+func (p *Pool) EmitAllFilter(res *router.Response, f SocketFilter) {
+	p.emitC <- emitReq{
+		room:   nil,
+		res:    res,
+		filter: f,
+	}
+}
+
+func (p *Pool) EmitRoom(room Room, res *router.Response) {
+	p.emitC <- emitReq{
+		room:   &room,
+		res:    res,
+		filter: nil,
+	}
+}
+
+func (p *Pool) EmitRoomFilter(room Room, res *router.Response, f SocketFilter) {
+	p.emitC <- emitReq{
+		room:   &room,
+		res:    res,
+		filter: f,
+	}
 }

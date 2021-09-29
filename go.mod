@@ -7,6 +7,7 @@ require (
 	github.com/gobwas/httphead v0.0.0-20180130184737-2c6c146eadee // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.0.3
+	github.com/google/uuid v1.3.0
 	github.com/mailru/easygo v0.0.0-20190618140210-3c14a0dc985f
 	github.com/wascript3r/cryptopay v0.0.4
 	github.com/wascript3r/gopool v0.0.0-20200227213539-8fa9e794e69d
