@@ -147,6 +147,18 @@ func (p *Pool) NumSockets() int {
 	return len(p.sockets)
 }
 
+func (p *Pool) RoomNumSockets(r Room) (int, error) {
+	p.mx.RLock()
+	defer p.mx.RUnlock()
+
+	sockets, ok := p.rooms[r]
+	if !ok {
+		return 0, ErrRoomDoesNotExist
+	}
+
+	return len(sockets), nil
+}
+
 func (p *Pool) emitMany(r emitReq) error {
 	bs, err := json.Marshal(r.res)
 	if err != nil {
@@ -192,6 +204,23 @@ func (p *Pool) CreateRoom(r Room) {
 	defer p.mx.Unlock()
 
 	p.rooms[r] = make(map[gows.UUID]*socket)
+}
+
+func (p *Pool) DeleteRoom(r Room) error {
+	p.mx.Lock()
+	defer p.mx.Unlock()
+
+	sockets, ok := p.rooms[r]
+	if !ok {
+		return ErrRoomDoesNotExist
+	}
+
+	for _, ss := range sockets {
+		ss.leaveRoom(r)
+	}
+
+	delete(p.rooms, r)
+	return nil
 }
 
 func (p *Pool) JoinRoom(s *gows.Socket, r Room) error {
