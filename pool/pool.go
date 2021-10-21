@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrSocketDoesNotExist = errors.New("socket does not exist")
+	ErrRoomAlreadyExists  = errors.New("room already exists")
 	ErrRoomDoesNotExist   = errors.New("room does not exist")
 	ErrRoomAlreadyJoined  = errors.New("room is already joined")
 	ErrRoomIsNotJoined    = errors.New("room is not joined")
@@ -209,11 +210,16 @@ func (p *Pool) emitMany(r emitReq) error {
 	return nil
 }
 
-func (p *Pool) CreateRoom(r *Room) {
+func (p *Pool) CreateRoom(r *Room) error {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
+	if _, ok := p.rooms[r]; ok {
+		return ErrRoomAlreadyExists
+	}
+
 	p.rooms[r] = make(map[gows.UUID]*socket)
+	return nil
 }
 
 func (p *Pool) DeleteRoom(r *Room) error {
