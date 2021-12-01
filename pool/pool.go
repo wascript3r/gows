@@ -193,6 +193,14 @@ func (p *Pool) RoomNumSockets(name RoomName) (int, error) {
 	return len(r.sockets), nil
 }
 
+func (p *Pool) RoomExists(name RoomName) bool {
+	p.mx.RLock()
+	defer p.mx.RUnlock()
+
+	_, ok := p.rooms[name]
+	return ok
+}
+
 func (p *Pool) emitMany(r emitReq) error {
 	bs, err := json.Marshal(r.res)
 	if err != nil {
