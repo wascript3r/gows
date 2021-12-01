@@ -23,8 +23,8 @@ var (
 type RoomName string
 
 type RoomConfig struct {
-	Name            RoomName
-	DeleteWhenEmpty bool
+	name            RoomName
+	deleteWhenEmpty bool
 }
 
 type room struct {
@@ -34,9 +34,13 @@ type room struct {
 
 func NewRoomConfig(name RoomName, deleteWhenEmpty bool) *RoomConfig {
 	return &RoomConfig{
-		Name:            name,
-		DeleteWhenEmpty: deleteWhenEmpty,
+		name:            name,
+		deleteWhenEmpty: deleteWhenEmpty,
 	}
+}
+
+func (r *RoomConfig) Name() string {
+	return string(r.name)
 }
 
 type socket struct {
@@ -89,7 +93,7 @@ type Pool struct {
 	emitC   chan emitReq
 }
 
-func New(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.EventBus) (*Pool, error) {
+func NewPool(ctx context.Context, pool *gopool.Pool, log logger.Usecase, ev gows.EventBus) (*Pool, error) {
 	p := &Pool{
 		pool: pool,
 		log:  log,
@@ -159,7 +163,7 @@ func (p *Pool) handleDisconnect(_ context.Context, s *gows.Socket, _ *gows.Reque
 		}
 
 		delete(r.sockets, s.GetUUID())
-		if r.config.DeleteWhenEmpty && len(r.sockets) == 0 {
+		if r.config.deleteWhenEmpty && len(r.sockets) == 0 {
 			delete(p.rooms, name)
 		}
 	}
@@ -233,11 +237,11 @@ func (p *Pool) CreateRoom(c *RoomConfig) error {
 	p.mx.Lock()
 	defer p.mx.Unlock()
 
-	if _, ok := p.rooms[c.Name]; ok {
+	if _, ok := p.rooms[c.name]; ok {
 		return ErrRoomAlreadyExists
 	}
 
-	p.rooms[c.Name] = &room{
+	p.rooms[c.name] = &room{
 		config:  c,
 		sockets: make(map[gows.UUID]*socket),
 	}
