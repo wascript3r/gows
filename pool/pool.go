@@ -39,7 +39,11 @@ func NewRoomConfig(name RoomName, deleteWhenEmpty bool) *RoomConfig {
 	}
 }
 
-func (r *RoomConfig) Name() string {
+func (r *RoomConfig) Name() RoomName {
+	return r.name
+}
+
+func (r *RoomConfig) NameString() string {
 	return string(r.name)
 }
 
