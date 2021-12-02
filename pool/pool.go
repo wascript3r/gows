@@ -325,6 +325,9 @@ func (p *Pool) LeaveRoom(s *gows.Socket, name RoomName) error {
 	}
 
 	delete(r.sockets, s.GetUUID())
+	if r.config.deleteWhenEmpty && len(r.sockets) == 0 {
+		delete(p.rooms, name)
+	}
 	return nil
 }
 
