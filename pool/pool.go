@@ -193,6 +193,13 @@ func (p *Pool) RoomNumSockets(name RoomName) (int, error) {
 	return len(r.sockets), nil
 }
 
+func (p *Pool) NumRooms() int {
+	p.mx.RLock()
+	defer p.mx.RUnlock()
+
+	return len(p.rooms)
+}
+
 func (p *Pool) RoomExists(name RoomName) bool {
 	p.mx.RLock()
 	defer p.mx.RUnlock()
