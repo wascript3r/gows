@@ -5,36 +5,48 @@ import (
 	"github.com/wascript3r/gows"
 )
 
+type jsonError struct {
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}
+
+func newJsonError(err Error) *jsonError {
+	return &jsonError{
+		Name:    err.Name(),
+		Message: gostr.UpperFirst(err.Error()),
+	}
+}
+
 type Params map[string]interface{}
 
 type Response struct {
-	Err    *string     `json:"e"`
-	Method *string     `json:"m"`
-	Params interface{} `json:"p"`
+	Error  *jsonError  `json:"error"`
+	Method *string     `json:"method"`
+	Data   interface{} `json:"data"`
 }
 
-func WriteErr(s *gows.Socket, err error, method *string) error {
-	errStr := gostr.UpperFirst(err.Error())
+func WriteErr(s *gows.Socket, err Error, method *string) error {
+	jsonErr := newJsonError(err)
 
 	return s.WriteJSON(Response{
-		Err:    &errStr,
+		Error:  jsonErr,
 		Method: method,
-		Params: nil,
+		Data:   nil,
 	})
 }
 
 func WriteBadRequest(s *gows.Socket, method *string) error {
-	return WriteErr(s, ErrBadRequest, method)
+	return WriteErr(s, BadRequestError, method)
 }
 
 func WriteInternalError(s *gows.Socket, method *string) error {
-	return WriteErr(s, ErrInternalError, method)
+	return WriteErr(s, InternalServerError, method)
 }
 
 func WriteRes(s *gows.Socket, method *string, p interface{}) error {
 	return s.WriteJSON(Response{
-		Err:    nil,
+		Error:  nil,
 		Method: method,
-		Params: p,
+		Data:   p,
 	})
 }

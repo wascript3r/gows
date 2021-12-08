@@ -1,9 +1,30 @@
 package router
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/wascript3r/cryptopay/pkg/errcode"
+)
+
+type Error interface {
+	error
+	Name() string
+	Original() error
+}
 
 var (
-	ErrBadRequest     = errors.New("bad request")
-	ErrInternalError  = errors.New("internal error")
-	ErrMethodNotFound = errors.New("method not found")
+	MethodNotFoundError = errcode.New(
+		"method_not_found",
+		errors.New("method not found"),
+	)
+
+	BadRequestError = errcode.New(
+		"bad_request",
+		errors.New("bad request"),
+	)
+
+	InternalServerError = errcode.New(
+		"internal_server_error",
+		errors.New("internal server error"),
+	)
 )
