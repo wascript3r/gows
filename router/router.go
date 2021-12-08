@@ -46,7 +46,7 @@ func (r *Router) handle(ctx context.Context, s *gows.Socket, req *gows.Request) 
 	r.mx.RUnlock()
 
 	if !ok {
-		WriteErr(s, ErrMethodNotFound, nil)
+		WriteErr(s, MethodNotFoundError, nil)
 		return
 	}
 
