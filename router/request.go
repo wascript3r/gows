@@ -6,8 +6,8 @@ import (
 )
 
 type Request struct {
-	Method string          `json:"m"`
-	Params json.RawMessage `json:"p"`
+	Method string          `json:"method"`
+	Data   json.RawMessage `json:"data"`
 }
 
 func ParseRequest(r io.Reader) (*Request, error) {
