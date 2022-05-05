@@ -69,7 +69,7 @@ func (s *Server) handlePollEvent(ctx context.Context) func(netpoll.Event) {
 
 	return func(ev netpoll.Event) {
 		// Pool schedule error
-		err := s.pool.ScheduleTimeout(s.opts.ScheduleTimeout, func() {
+		err := s.pool.ScheduleTimeout(func() {
 			// Connection accept error
 			conn, err := s.listener.Accept()
 			if err != nil {
@@ -79,7 +79,7 @@ func (s *Server) handlePollEvent(ctx context.Context) func(netpoll.Event) {
 			connErr <- nil
 
 			s.handleConn(ctx, conn)
-		})
+		}, s.opts.ScheduleTimeout)
 		if err != nil {
 			if err == gopool.ErrScheduleTimeout {
 				s.cooldown(ctx, s.opts.Cooldown)
@@ -88,7 +88,7 @@ func (s *Server) handlePollEvent(ctx context.Context) func(netpoll.Event) {
 		}
 
 		if err := <-connErr; err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				s.cooldown(ctx, s.opts.Cooldown)
 			}
 		}
